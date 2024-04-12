@@ -74,7 +74,7 @@ xx::Task<> ResFrames::AsyncLoad(std::vector<std::pair<std::string, xx::Ref<Frame
 
 	for (auto& fn : fns) {
 		xx::AppendFormat(c, R"#(
-	ffs.emplace_back(picRoot + "{0}.png", &{0});)#", fn);
+	ffs.emplace_back(picRoot + "{0}.png", &this->{0});)#", fn);
 	}
 
 	xx::Append(c, R"#(
