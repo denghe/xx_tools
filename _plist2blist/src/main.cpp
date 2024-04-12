@@ -1,18 +1,9 @@
 ﻿#include <pch.h>
 
-// replace . space to _
-std::string ToFieldName(std::string_view sv) {
-	std::string s(sv);
-	for (auto& c : s) {
-		if (c == '.' || c == ' ') c = '_';
-	}
-	return s;
-}
-
 int main() {
 	SetConsoleOutputCP(CP_UTF8);
 	auto&& cp = std::filesystem::current_path();
-	std::cout << "tool: *.plist -> *.blist + res_frames.h & cpp\nworking dir: " << cp.string() << "\npress any key continue...\n";
+	std::cout << "tool: *.plist -> *.blist ( key can't contains space or dot ) + res_frames.h & cpp\nworking dir: " << cp.string() << "\npress any key continue...\n";
 	std::cin.get();
 
 	std::unordered_map<std::string, std::string> keys;	// cross all plist keys
@@ -23,20 +14,20 @@ int main() {
 		auto&& p = entry.path();
 		if (p.extension() != u8".plist") continue;
 
+		auto plistName = xx::U8AsString(p.filename().u8string());
 		auto fullpath = xx::U8AsString(std::filesystem::absolute(p).u8string());
-		auto newPath = fullpath.substr(0, fullpath.size() - 6) + ".blist";
-		auto newPath2 = fullpath.substr(0, fullpath.size() - 6) + ".txt";
+		auto blistPath = fullpath.substr(0, fullpath.size() - 6) + ".blist";
 
 		xx::Data fd;
 		if (int r = xx::ReadAllBytes(p, fd)) {
 			std::cerr << "ReadAllBytes failed. r = " << r << " fn = " << p << std::endl;
-			return -1;
+			return -__LINE__;
 		}
 
 		xx::TexturePackerReader::Plist tp;
 		if (int r = tp.Load(fd)) {
 			std::cerr << "tp.Load failed. r = " << r << " fn = " << p << std::endl;
-			return -2;
+			return -__LINE__;
 		}
 
 		std::cout << "handle file: " << p << std::endl;
@@ -48,11 +39,18 @@ int main() {
 		for (auto& f : tp.frames) {
 			std::cout << "handle frame: " << f.name << std::endl;
 
-			if (auto [iter, success] = keys.emplace(f.name, fullpath); !success) {
+			for (auto const& c : f.name) {
+				if (c == '.' || c == ' ') {
+					std::cerr << "bad key name( contain space or dot ): " << f.name << std::endl;
+					return -__LINE__;
+				}
+			}
+
+			if (auto [iter, success] = keys.emplace(f.name, plistName); !success) {
 				std::cerr << "duplicate res name: " << f.name << " in plist " << iter->second
-					<< " and plist " << fullpath
+					<< " and plist " << plistName
 					<< std::endl;
-				return -2;
+				return -__LINE__;
 			}
 
 			d.Write(f.name);
@@ -75,11 +73,27 @@ int main() {
 			d.WriteFixed(f.textureRect.height);
 			d.WriteFixed(f.textureRotated);
 		}
-		xx::WriteAllBytes((std::u8string&)newPath, d);
+		xx::WriteAllBytes((std::u8string&)blistPath, d);
 		++n;
 	}
 
 	// todo: gen code
+
+	// todo: remove key suffix  .png .jpg ?
+
+	// group by prefix...._number
+	//std::map<std::string_view, std::vector<std::string_view>> kvs;
+	//for (auto& fn : fns) {
+	//	std::string_view sv(fn);
+	//	if (auto idx = sv.find_last_of('_'); idx != sv.npos) {
+	//		auto k = sv.substr(0, idx);
+	//		auto v = sv.substr(idx + 1);
+	//		if (v.find_first_not_of("0123456789"sv) != v.npos) continue;
+	//		kvs[k].push_back(v);
+	//	}
+	//}
+
+
 
 	std::cout << "finished. handled " << n << " files! \npress any key continue...\n";
 	std::cin.get();
