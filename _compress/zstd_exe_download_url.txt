@@ -1,0 +1,3 @@
+https://github.com/facebook/zstd/releases
+
+download  zstd-v?????-win64.zip & extract  zstd.exe  here
