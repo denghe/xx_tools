@@ -195,7 +195,6 @@ namespace Scene_MainMenu {
 		ImGui::SetNextWindowSize({ width, mvp->WorkSize.y - margin * 2 });
 
 		ImGuiWindowFlags wf{};
-		wf |= ImGuiWindowFlags_NoScrollbar;
 		wf |= ImGuiWindowFlags_NoMove;
 		wf |= ImGuiWindowFlags_NoResize;
 		wf |= ImGuiWindowFlags_NoCollapse;
@@ -208,8 +207,83 @@ namespace Scene_MainMenu {
 		}
 		ImGui::End();
 
+		if (!selectedFileName.empty()) {
 
-		// todo: tab window
+			// todo: prepare selected item's context
+			static float scale{}, angle{};	// todo
+
+			ImGui::SetNextWindowPos({ mvp->WorkPos.x + margin + width + margin, mvp->WorkPos.y + margin });
+			ImGui::SetNextWindowSize({ mvp->WorkSize.x - margin * 3 - width, 105 });
+
+			wf = {};
+			wf |= ImGuiWindowFlags_NoScrollbar;
+			wf |= ImGuiWindowFlags_NoMove;
+			wf |= ImGuiWindowFlags_NoResize;
+			wf |= ImGuiWindowFlags_NoCollapse;
+			if (ImGui::Begin("selected file details", nullptr, wf)) {
+				if (ImGui::BeginTabBar("##Tabs", ImGuiTabBarFlags_None)) {
+					// todo: switch by file type( more types support )
+
+					if (ImGui::BeginTabItem("preview")) {
+						ImGui::Text("please input scale: ");
+						ImGui::SameLine();
+						ImGui::SetNextItemWidth(100);
+						ImGui::InputFloat("##scale", &scale, {}, {}, "%.3f", ImGuiInputTextFlags_CharsDecimal);
+						ImGui::SameLine();
+						if (ImGui::Button("Submit")) {
+							// todo: change scale ( store to db )
+							xx::CoutN("scale changed to ", scale);
+						}
+						ImGui::EndTabItem();
+					}
+
+					if (ImGui::BeginTabItem("angle")) {
+						ImGui::Text("please input angle: ");
+						ImGui::SameLine();
+						ImGui::SetNextItemWidth(100);
+						ImGui::InputFloat("##angle", &angle, {}, {}, "%.3f", ImGuiInputTextFlags_CharsDecimal);
+						ImGui::SameLine();
+						if (ImGui::Button("Submit")) {
+							// todo: input angle text ( store to db )
+							xx::CoutN("angle changed to ", angle);
+						}
+						ImGui::EndTabItem();
+					}
+
+					if (ImGui::BeginTabItem("pivot")) {
+						ImGui::Text("MOUSE Left: drag  Whell: zoom  Right: set pivot");
+						ImGui::SameLine();
+						if (ImGui::Button("Clear")) {
+							// todo
+							xx::CoutN("pivot clear");
+						}
+						ImGui::EndTabItem();
+					}
+
+					// todo
+					if (ImGui::BeginTabItem("circles")) {
+						ImGui::EndTabItem();
+					}
+
+					if (ImGui::BeginTabItem("aabb")) {
+						ImGui::EndTabItem();
+					}
+
+					if (ImGui::BeginTabItem("hooks")) {
+						ImGui::EndTabItem();
+					}
+
+					if (ImGui::BeginTabItem("nails")) {
+						ImGui::EndTabItem();
+					}
+
+					ImGui::EndTabBar();
+				}
+			}
+			ImGui::End();
+
+			// todo: call logic by tab
+		}
 	}
 
 	/********************************************************************************************************/
