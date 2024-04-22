@@ -202,6 +202,7 @@ namespace Scene_MainMenu {
 			for( auto& [k, v] : pngs) {
 				if (ImGui::Selectable((char*)k.c_str(), selectedFileName == k)) {
 					selectedFileName = k;
+					selectedFile = db.SelectOrInsertFile((std::string&)k);
 				}
 			}
 		}

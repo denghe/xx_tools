@@ -23,20 +23,28 @@ void DB::NewOrOpen(std::string path) {
 }
 
 void DB::Close() {
-    assert(conn);
+	assert(conn);
 	conn.Close();
 
-    qSelectFile.Clear();
-    qSelectFileCircles.Clear();
-    qSelectFileHooks.Clear();
-    qSelectFileNails.Clear();
-    qInsertFile.Clear();
-    // todo: more clear
+	qSelectFile.Clear();
+	qSelectFileCircles.Clear();
+	qSelectFileHooks.Clear();
+	qSelectFileNails.Clear();
+
+	qInsertFile.Clear();
+
+	qUpdateFilePreview.Clear();
+	qUpdateFileAngle.Clear();
+	qUpdateFilePivot.Clear();
+
+	qDeleteFileCircles.Clear();
+	qInsertFileCircles.Clear();
+	// todo: more clear
 }
 
 void DB::CreateTables() {
-	try {
-		conn.Execute(R"#(
+
+	conn.Execute(R"#(
 CREATE TABLE IF NOT EXISTS file (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     name             TEXT    NOT NULL,
@@ -53,7 +61,7 @@ CREATE TABLE IF NOT EXISTS file (
 );
 )#");
 
-		conn.Execute(R"#(
+	conn.Execute(R"#(
 CREATE TABLE IF NOT EXISTS file_circle (
     file_id INTEGER REFERENCES file (id),
     idx INTEGER,
@@ -66,7 +74,7 @@ CREATE TABLE IF NOT EXISTS file_circle (
     )
 );
 )#");
-		conn.Execute(R"#(
+	conn.Execute(R"#(
 CREATE TABLE IF NOT EXISTS file_hook (
     file_id INTEGER REFERENCES file (id),
     idx INTEGER,
@@ -78,7 +86,7 @@ CREATE TABLE IF NOT EXISTS file_hook (
     )
 );
 )#");
-		conn.Execute(R"#(
+	conn.Execute(R"#(
 CREATE TABLE IF NOT EXISTS file_nail (
     file_id INTEGER REFERENCES file (id),
     idx INTEGER,
@@ -93,9 +101,7 @@ CREATE TABLE IF NOT EXISTS file_nail (
     )
 );
 )#");
-	} catch (std::exception const& ex) {
-		xx::CoutN("throw exception at CreateTables. ex = ", ex.what());
-	}
+
 }
 
 void DB::InitQueries() {
@@ -114,7 +120,7 @@ SELECT id,
  WHERE name = ?
 )");
 
-    qSelectFileCircles.SetQuery(R"(
+	qSelectFileCircles.SetQuery(R"(
 SELECT file_id,
        idx,
        x,
@@ -124,27 +130,27 @@ SELECT file_id,
  WHERE file_id = ?
 )");
 
-    qSelectFileHooks.SetQuery(R"(
+	qSelectFileHooks.SetQuery(R"(
 SELECT file_id,
        idx,
        x,
        y
-  FROM file_circle
+  FROM file_hook
  WHERE file_id = ?
 )");
 
-    qSelectFileNails.SetQuery(R"(
+	qSelectFileNails.SetQuery(R"(
 SELECT file_id,
        idx,
        x,
        y,
        a_from,
-       a_to,
-  FROM file_circle
+       a_to
+  FROM file_nail
  WHERE file_id = ?
 )");
 
-    qInsertFile.SetQuery(R"(
+	qInsertFile.SetQuery(R"(
 INSERT INTO file (
     name,
     desc,
@@ -167,6 +173,49 @@ VALUES (
 );
 )");
 
+	qUpdateFilePreview.SetQuery(R"(
+UPDATE file
+   SET preview_offset_x = ?,
+       preview_offset_y = ?,
+       preview_scale = ?
+ WHERE id = ?
+)");
+
+	qUpdateFileAngle.SetQuery(R"(
+UPDATE file
+   SET angle = ?
+ WHERE id = ?
+)");
+
+	qUpdateFilePivot.SetQuery(R"(
+UPDATE file
+   SET pivot_x = ?,
+       pivot_y = ?
+ WHERE id = ?
+)");
+
+	qDeleteFileCircles.SetQuery(R"(
+DELETE FROM file_circle
+      WHERE file_id = ?
+)");
+
+	qInsertFileCircles.SetQuery(R"(
+INSERT INTO file_circle (
+    file_id,
+    idx,
+    x,
+    y,
+    r
+)
+VALUES (
+    ?,
+    ?,
+    ?,
+    ?,
+    ?
+)
+)");
+
 	// todo: more set query
 }
 
@@ -174,9 +223,9 @@ std::optional<DB::File> DB::SelectOrInsertFile(std::string_view const& file_name
 	assert(conn);
 	std::optional<DB::File> rtv;
 	rtv.emplace();
-    qSelectFile.SetParameters(file_name);
-    // try ?
-    bool found = qSelectFile.ExecuteTo(
+	qSelectFile.SetParameters(file_name);
+	// try ?
+	bool found = qSelectFile.ExecuteTo(
 		rtv->id
 		, rtv->name
 		, rtv->desc
@@ -187,89 +236,138 @@ std::optional<DB::File> DB::SelectOrInsertFile(std::string_view const& file_name
 		, rtv->pivot_x
 		, rtv->pivot_y
 	);
-    if (found) {
-        rtv->circles = SelectFileCircles(rtv->id);
-        rtv->hooks = SelectFileHooks(rtv->id);
-        rtv->nails = SelectFileNails(rtv->id);
-    } else {
-        rtv->name = file_name;
-        InsertFile(*rtv);
-    }
+	if (found) {
+		rtv->circles = SelectFileCircles(rtv->id);
+		rtv->hooks = SelectFileHooks(rtv->id);
+		rtv->nails = SelectFileNails(rtv->id);
+	} else {
+		rtv->name = file_name;
+		InsertFile(*rtv);
+	}
 
 	return rtv;
 }
 
 std::vector<DB::FileCircle> DB::SelectFileCircles(int32_t file_id) {
-    std::vector<DB::FileCircle> rtv;
-    qSelectFileCircles.SetParameters(file_id);
-    qSelectFileCircles.Execute([&](xx::SQLite::Reader& r)->int {
-        auto& d = rtv.emplace_back();
-        r.Reads( 
-            d.file_id
-            , d.idx
-            , d.x
-            , d.y
-            , d.r
-        );
-        return 0;
-    });
-    return rtv;
+	std::vector<DB::FileCircle> rtv;
+	qSelectFileCircles.SetParameters(file_id);
+	qSelectFileCircles.Execute([&](xx::SQLite::Reader& r)->int {
+		auto& d = rtv.emplace_back();
+		r.Reads(
+			d.file_id
+			, d.idx
+			, d.x
+			, d.y
+			, d.r
+		);
+		return 0;
+		});
+	return rtv;
 }
 
 std::vector<DB::FileHook> DB::SelectFileHooks(int32_t file_id) {
-    std::vector<DB::FileHook> rtv;
-    qSelectFileHooks.SetParameters(file_id);
-    qSelectFileHooks.Execute([&](xx::SQLite::Reader& r)->int {
-        auto& d = rtv.emplace_back();
-        r.Reads(
-            d.file_id
-            , d.idx
-            , d.x
-            , d.y
-        );
-        return 0;
-        });
-    return rtv;
+	std::vector<DB::FileHook> rtv;
+	qSelectFileHooks.SetParameters(file_id);
+	qSelectFileHooks.Execute([&](xx::SQLite::Reader& r)->int {
+		auto& d = rtv.emplace_back();
+		r.Reads(
+			d.file_id
+			, d.idx
+			, d.x
+			, d.y
+		);
+		return 0;
+		});
+	return rtv;
 }
 
 std::vector<DB::FileNail> DB::SelectFileNails(int32_t file_id) {
-    std::vector<DB::FileNail> rtv;
-    qSelectFileNails.SetParameters(file_id);
-    qSelectFileNails.Execute([&](xx::SQLite::Reader& r)->int {
-        auto& d = rtv.emplace_back();
-        r.Reads(
-            d.file_id
-            , d.idx
-            , d.x
-            , d.y
-            , d.a_from
-            , d.a_to
-            , d.cfg
-        );
-        return 0;
-        });
-    return rtv;
+	std::vector<DB::FileNail> rtv;
+	qSelectFileNails.SetParameters(file_id);
+	qSelectFileNails.Execute([&](xx::SQLite::Reader& r)->int {
+		auto& d = rtv.emplace_back();
+		r.Reads(
+			d.file_id
+			, d.idx
+			, d.x
+			, d.y
+			, d.a_from
+			, d.a_to
+			, d.cfg
+		);
+		return 0;
+		});
+	return rtv;
 }
 
 void DB::InsertFile(File& file) {
-    qSelectFileNails.SetParameters(
-        file.name
-        , file.desc
-        , file.preview_offset_x
-        , file.preview_offset_y
-        , file.preview_scale
-        , file.angle
-        , file.pivot_x
-        , file.pivot_y
-    );
-    qSelectFileNails.Execute();
-    file.id = (int32_t)conn.GetLastInsertRowId();
+	qInsertFile.SetParameters(
+		file.name
+		, file.desc
+		, file.preview_offset_x
+		, file.preview_offset_y
+		, file.preview_scale
+		, file.angle
+		, file.pivot_x
+		, file.pivot_y
+	);
+	qInsertFile.Execute();
+	file.id = (int32_t)conn.GetLastInsertRowId();
+}
+
+bool DB::UpdateFilePreview(File const& file) {
+	qUpdateFilePreview.SetParameters(
+		file.preview_offset_x
+		, file.preview_offset_y
+		, file.preview_scale
+		, file.id
+	);
+	qUpdateFilePreview.Execute();
+	return conn.GetAffectedRows() == 1;
+}
+
+bool DB::UpdateFileAngle(File const& file) {
+	qUpdateFileAngle.SetParameters(
+		file.angle
+		, file.id
+	);
+	qUpdateFileAngle.Execute();
+	return conn.GetAffectedRows() == 1;
+}
+
+bool DB::UpdateFilePivot(File const& file) {
+	qUpdateFilePivot.SetParameters(
+		file.pivot_x
+		, file.pivot_y
+		, file.id
+	);
+	qUpdateFilePivot.Execute();
+	return conn.GetAffectedRows() == 1;
+}
+
+void DB::UpdateFileCircles(File const& file) {
+	conn.BeginTransaction();
+	qDeleteFileCircles.SetParameters(
+		file.id
+	);
+	qDeleteFileCircles.Execute();
+	for (auto& c : file.circles) {
+		qInsertFileCircles.SetParameters(
+			c.file_id,
+			c.idx,
+			c.x,
+			c.y,
+			c.r
+		);
+		qInsertFileCircles.Execute();
+	}
+	conn.Commit();
 }
 
 bool DB::File::HasPreviewData() const {
 	return preview_offset_x.has_value()
-        && preview_offset_y.has_value()
-        && preview_scale.has_value();
+		&& preview_offset_y.has_value()
+		&& preview_scale.has_value();
 }
 
 bool DB::File::HasAngleData() const {
@@ -278,17 +376,17 @@ bool DB::File::HasAngleData() const {
 
 bool DB::File::HasPivotData() const {
 	return pivot_x.has_value()
-        && pivot_y.has_value();
+		&& pivot_y.has_value();
 }
 
 bool DB::File::HasCirclesData() const {
-    return !circles.empty();
+	return !circles.empty();
 }
 
 bool DB::File::HasHooksData() const {
-    return !hooks.empty();
+	return !hooks.empty();
 }
 
 bool DB::File::HasNailsData() const {
-    return !nails.empty();
+	return !nails.empty();
 }

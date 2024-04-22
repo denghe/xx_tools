@@ -62,7 +62,23 @@ struct DB {
 	std::vector<FileNail> SelectFileNails(int32_t file_id);
 
 	xx::SQLite::Query qInsertFile{ conn };
-	void InsertFile(File& file);	// insert & fill id
+	void InsertFile(File& file);	// insert & fill auto increase id
 
-	// todo: more updates
+	// todo: update desc ?
+
+	xx::SQLite::Query qUpdateFilePreview{ conn };
+	bool UpdateFilePreview(File const& file);
+
+	xx::SQLite::Query qUpdateFileAngle{ conn };
+	bool UpdateFileAngle(File const& file);
+
+	xx::SQLite::Query qUpdateFilePivot{ conn };
+	bool UpdateFilePivot(File const& file);
+
+	// update circles = delete + inserts
+	xx::SQLite::Query qDeleteFileCircles{ conn };
+	xx::SQLite::Query qInsertFileCircles{ conn };
+	void UpdateFileCircles(File const& file);
+
+	// todo: more updates Hooks Nails need check foreign key depends + disable check + delete + batch insert + enable check
 };

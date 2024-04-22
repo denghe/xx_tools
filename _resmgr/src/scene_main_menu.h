@@ -30,6 +30,7 @@ namespace Scene_MainMenu {
 
 		void Draw_File_Browse();
 		std::u8string selectedFileName;
+		std::optional<DB::File> selectedFile;
 
 		void Draw_Error();
 		std::string errorMessage;
