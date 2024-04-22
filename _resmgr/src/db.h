@@ -31,15 +31,38 @@ struct DB {
 		std::vector<FileHook> hooks;
 		std::vector<FileNail> nails;
 
-		bool HasData() const;
+		bool HasPreviewData() const;
+		bool HasAngleData() const;
+		bool HasPivotData() const;
+		bool HasCirclesData() const;
+		bool HasHooksData() const;
+		bool HasNailsData() const;
 	};
 
 	std::filesystem::path rootDir;
+
 	xx::SQLite::Connection conn;
 	operator bool() const;
+
 	void NewOrOpen(std::string path);	// conn == true: success
 	void Close();
 	void CreateTables();
+	void InitQueries();
 
-	// todo: Load Save File xxxxx
+	xx::SQLite::Query qSelectFile{ conn };
+	std::optional<File> SelectOrInsertFile(std::string_view const& file_name);
+
+	xx::SQLite::Query qSelectFileCircles{ conn };
+	std::vector<FileCircle> SelectFileCircles(int32_t file_id);
+
+	xx::SQLite::Query qSelectFileHooks{ conn };
+	std::vector<FileHook> SelectFileHooks(int32_t file_id);
+
+	xx::SQLite::Query qSelectFileNails{ conn };
+	std::vector<FileNail> SelectFileNails(int32_t file_id);
+
+	xx::SQLite::Query qInsertFile{ conn };
+	void InsertFile(File& file);	// insert & fill id
+
+	// todo: more updates
 };
