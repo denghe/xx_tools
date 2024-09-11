@@ -28,6 +28,14 @@ int main() {
 		}
 	}
 
+	// sort by number
+	for (auto&& kv : kvs) {
+		auto& ss = kv.second;
+		std::sort(ss.begin(), ss.end(), [](std::string_view const& a, std::string_view const& b)->bool {
+			return xx::SvToNumber<int>(a) < xx::SvToNumber<int>(b);
+		});
+	}
+
 	std::string h, c;
 
 	xx::Append(h, R"#(#include "pch.h"
@@ -52,7 +60,8 @@ struct ResFrames {
 
 	for (auto&& kv : kvs) {
 		xx::AppendFormat(h, R"(
-	xx::Listi32<xx::Ref<xx::Frame>> {0}_;)", kv.first);
+	xx::Listi32<xx::Ref<xx::Frame>> {0}_;
+	static constexpr int32_t _countof_{0}_ {{ {1} };)", kv.first, kv.second.size());
 	}
 
 	xx::Append(h, R"#(
