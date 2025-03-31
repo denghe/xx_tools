@@ -6,8 +6,9 @@ int main() {
 	std::cout << "tool: *.plist -> *.blist ( key can't contains space or dot ) + res_tp_frames.h & cpp\nworking dir: " << cp.string() << "\npress any key continue...";
 	std::cin.get();
 
-	std::unordered_map<std::string, std::vector<std::string>> plists;	// plist : keys
-	std::map<std::string, std::string> keys;							// key : owner plist
+	std::unordered_map<std::string, std::vector<std::string>> plists;		// plist file name : keys
+	std::map<std::string, std::string> keys;								// key : owner plist file name
+	std::unordered_map<std::string, xx::TexturePackerReader::Plist> tps;	// plist file name : data
 
 	int n = 0;
 	for (auto&& entry : std::filesystem::/*recursive_*/directory_iterator(cp)) {
@@ -20,6 +21,7 @@ int main() {
 		auto blistPath = fullpath.substr(0, fullpath.size() - 6) + ".blist";
 
 		auto [iter, success] = plists.emplace(plistName, std::vector<std::string>{});
+		assert(success);
 
 		xx::Data fd;
 		if (int r = xx::ReadAllBytes(p, fd)) {
@@ -27,7 +29,9 @@ int main() {
 			return -__LINE__;
 		}
 
-		xx::TexturePackerReader::Plist tp;
+		auto&& rtv = tps.emplace(plistName, xx::TexturePackerReader::Plist{});
+		assert(rtv.second);
+		auto& tp = rtv.first->second;
 		if (int r = tp.Load(fd)) {
 			std::cerr << "tp.Load failed. r = " << r << " fn = " << p << std::endl;
 			return -__LINE__;
@@ -86,19 +90,20 @@ int main() {
 	}
 
 	// group by prefix...._number
-	std::map<std::string_view, std::vector<std::string_view>> kvs;
+	std::map<std::string_view, std::vector<std::string_view>> keyGroups;
+
 	for (auto& [k, _] : keys) {
 		std::string_view sv(k);
 		if (auto idx = sv.find_last_of('_'); idx != sv.npos) {
 			auto k = sv.substr(0, idx);
 			auto v = sv.substr(idx + 1);
 			if (v.find_first_not_of("0123456789"sv) != v.npos) continue;
-			kvs[k].push_back(v);
+			keyGroups[k].push_back(v);
 		}
 	}
 
 	// sort by number
-	for (auto&& kv : kvs) {
+	for (auto&& kv : keyGroups) {
 		auto& ss = kv.second;
 		std::sort(ss.begin(), ss.end(), [](std::string_view const& a, std::string_view const& b)->bool {
 			return xx::SvToNumber<int>(a) < xx::SvToNumber<int>(b);
@@ -117,17 +122,36 @@ struct ResTpFrames {
 	xx::Task<> AsyncLoad(std::string picRoot);
 )#");
 
-	for (auto& [key, _] : keys) {
+	for (auto& [key, plistfn] : keys) {
+		auto& tp = tps[plistfn];
+		auto f = &tp.frames[0];
+		for (auto& o : tp.frames) {
+			if (o.name == key) {
+				f = &o;
+				break;
+			}
+		}
+
+		xx::XY anchor{ 0.5, 0.5 };
+		if (f->anchor.has_value()) {
+			anchor = *f->anchor;
+		}
+		
 		xx::AppendFormat(h, R"#(
-	xx::Ref<xx::Frame> {0};)#", key);
+	xx::Ref<xx::Frame> {0};
+	static constexpr xx::XY _size_{0}_{{ {1}, {2} };
+	static constexpr xx::XY _anchor_{0}_{{ {3}, {4} };)#"
+			, key, f->spriteSize.width, f->spriteSize.height
+			, anchor.x, anchor.y
+		);
 	}
 
-	if (!kvs.empty()) {
+	if (!keyGroups.empty()) {
 		xx::Append(h, R"#(
 )#");
 	}
 
-	for (auto&& kv : kvs) {
+	for (auto&& kv : keyGroups) {
 		xx::AppendFormat(h, R"(
 	xx::Listi32<xx::Ref<xx::Frame>> {0}_;
 	static constexpr int32_t _countof_{0}_ {{ {1} };)", kv.first, kv.second.size());
@@ -169,11 +193,11 @@ xx::Task<> ResTpFrames::AsyncLoad(std::string picRoot) {)#");
 )#");
 	}
 
-	if (!kvs.empty()) {
+	if (!keyGroups.empty()) {
 		xx::Append(c, R"#(
 	// fill groups
 )#");
-		for (auto&& kv : kvs) {
+		for (auto&& kv : keyGroups) {
 			for (auto&& s : kv.second) {
 				xx::AppendFormat(c, R"(
 	{0}_.Add({0}_{1});)", kv.first, s);
