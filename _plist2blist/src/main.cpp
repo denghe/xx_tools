@@ -140,13 +140,14 @@ struct ResTpFrames {
 		xx::AppendFormat(h, R"#(
 	xx::Ref<xx::Frame> {0};
 	xx::Ref<xx::GLTexture> _tex_{0};
+	GLuint _texid_{0}{{};	// unsafe
 	static constexpr xx::XY _size_{0}{{ {1}, {2} };
 	static constexpr xx::XY _anchor_{0}{{ {3}, {4} };
-	static constexpr xx::UVRect _uvrect_{0}{{ {5}, {6}, {1}, {2} };
+	static constexpr xx::UVRect _uvrect_{0}{{ {5}, {6}, {7}, {8} };
 )#"
 			, key, f->spriteSize.width, f->spriteSize.height
 			, anchor.x, anchor.y
-			, f->textureRect.x, f->textureRect.y
+			, f->textureRect.x, f->textureRect.y, f->textureRect.width, f->textureRect.height
 		);
 	}
 
@@ -191,7 +192,8 @@ xx::Task<> ResTpFrames::AsyncLoad(std::string picRoot) {)#");
 		for (auto& key : plist.second) {
 			xx::AppendFormat(c, R"#(
 		this->{0} = map["{0}"sv];
-		this->_tex_{0}= this->{0}->tex;)#", key);
+		this->_tex_{0} = this->{0}->tex;
+		this->_texid_{0} = this->_tex_{0}->GetValue();)#", key);
 		}
 		xx::AppendFormat(c, R"#(
 	}
