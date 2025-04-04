@@ -139,10 +139,14 @@ struct ResTpFrames {
 		
 		xx::AppendFormat(h, R"#(
 	xx::Ref<xx::Frame> {0};
-	static constexpr xx::XY _size_{0}_{{ {1}, {2} };
-	static constexpr xx::XY _anchor_{0}_{{ {3}, {4} };)#"
+	xx::Ref<xx::GLTexture> _tex_{0};
+	static constexpr xx::XY _size_{0}{{ {1}, {2} };
+	static constexpr xx::XY _anchor_{0}{{ {3}, {4} };
+	static constexpr xx::UVRect _uvrect_{0}{{ {5}, {6}, {1}, {2} };
+)#"
 			, key, f->spriteSize.width, f->spriteSize.height
 			, anchor.x, anchor.y
+			, f->textureRect.x, f->textureRect.y
 		);
 	}
 
@@ -154,7 +158,7 @@ struct ResTpFrames {
 	for (auto&& kv : keyGroups) {
 		xx::AppendFormat(h, R"(
 	xx::Listi32<xx::Ref<xx::Frame>> {0}_;
-	static constexpr int32_t _countof_{0}_ {{ {1} };)", kv.first, kv.second.size());
+	static constexpr int32_t _countof_{0}_{{ {1} };)", kv.first, kv.second.size());
 	}
 
 	xx::Append(h, R"#(
@@ -186,7 +190,8 @@ xx::Task<> ResTpFrames::AsyncLoad(std::string picRoot) {)#");
 
 		for (auto& key : plist.second) {
 			xx::AppendFormat(c, R"#(
-		this->{0} = map["{0}"sv];)#", key);
+		this->{0} = map["{0}"sv];
+		this->_tex_{0}= this->{0}->tex;)#", key);
 		}
 		xx::AppendFormat(c, R"#(
 	}
